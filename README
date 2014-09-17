@@ -50,6 +50,10 @@ explicitly specify it with "mvn -Phadoop_0.20.203 <goals>".
 
   You may tell maven to use this version with "mvn -Phadoop_0.23 <goals>".
 
+- Apache Hadoop Yarn with 2.2.0
+
+  You may tell maven to use this version with "mvn -Phadoop_yarn -Dhadoop.version=2.2.0 <goals>".
+
 - Apache Hadoop 3.0.0-SNAPSHOT
 
   You may tell maven to use this version with "mvn -Phadoop_trunk <goals>".
@@ -62,9 +66,7 @@ Unsecure Hadoop versions:
 
 - Facebook Hadoop releases: https://github.com/facebook/hadoop-20, Master branch
 
-  You may tell maven to use this version with:
-
-mvn -Phadoop_facebook -Dhadoop.jar.path=/path/to/repo/build/hadoop-0.20.1-dev-core.jar <goals>
+  You may tell maven to use this version with "mvn -Phadoop_facebook <goals>"
 
 -- Other versions reported working include:
 ---  Cloudera CDH3u0, CDH3u1
@@ -80,7 +82,7 @@ Building and testing:
 
 You will need the following:
 - Java 1.6
-- Maven 3 or higher. Giraph uses the munge plugin 
+- Maven 3 or higher. Giraph uses the munge plugin
   (http://sonatype.github.com/munge-maven-plugin/),
   which requires Maven 3, to support multiple versions of Hadoop. Also, the
   web site plugin requires Maven 3.
@@ -91,17 +93,66 @@ Use the maven commands with secure Hadoop to:
 - test (i.e. mvn test)
 
 For the non-secure versions of Hadoop, run the maven commands with the
-additional argument '-Dhadoop=non_secure' or '-Phadoop_non_secure' to enable
- the maven profile 'hadoop_non_secure'.  Example compilation commands are
-'mvn -Dhadoop=non_secure compile' and 'mvn -Phadoop_non_secure compile'.
+additional argument '-Phadoop_non_secure'.
+Example compilation commands is 'mvn -Phadoop_non_secure compile'.
 
 For the Facebook Hadoop release, run the maven commands with the
-additional arguments '-Dhadoop=facebook' or '-Phadoop_facebook' to enable 
-the maven profile 'hadoop_facebook' as well as a location for the hadoop
-core jar file.  Example compilation commands are 'mvn -Dhadoop=facebook
--Dhadoop.jar.path=/tmp/hadoop-0.20.1-core.jar compile' or 'mvn -Phadoop_facebook 
--Dhadoop.jar.path=/tmp/hadoop-0.20.1-core.jar compile'.
+additional arguments '-Phadoop_facebook'.
+Example compilation commands is 'mvn -Phadoop_facebook compile'.
 
+-------------------------------
+
+Developing:
+
+Giraph is a multi-module maven project. The top level generates a POM that
+carries information common to all the modules. Each module creates a jar with
+the code contained in it.
+
+The giraph/ module contains the main giraph code. If you just want to work on
+the main code only you can do all your work inside this subdirectory.
+Specifically you would do something like:
+
+  giraph-root/giraph/ $ mvn verify            # build from current state
+  giraph-root/giraph/ $ mvn clean             # wipe out build files
+  giraph-root/giraph/ $ mvn clean verify      # build from fresh state
+  giraph-root/giraph/ $ mvn install           # install jar to local repository
+
+The giraph-formats/ module contains hooks to read/write from various
+formats (e.g. Accumulo, HBase, Hive). It depends on the giraph module. This
+means if you make local changes to the giraph codebase you will first need to
+install the giraph/ jar locally so that giraph-formats/ will pick it up.
+In other words something like this:
+
+  giraph-root/giraph/ $ mvn install
+  giraph-root/giraph-formats $ mvn verify
+
+To build everything at once you can issue the maven commands at the top level.
+Note that we use the "install" target so that if you have any local changes to
+giraph/ which formats needs it will get picked up because it will install
+locally first.
+
+  giraph-root/ $ mvn clean install
+
+-------------------------------
+
+Scripting:
+
+Giraph has support for writing user logic in languages other than Java. A Giraph
+job involves at the very least a Computation and Input/Output Formats. There are
+other optional pieces as well like Aggregators and Combiners.
+
+As of this writing we support writing the Computation logic in Jython. The
+Computation class is at the core of the algorithm so it was a natural starting
+point. Eventually it is our goal to allow users to write any / all components of
+their algorithms in any language they desire.
+
+To use Jython with our job launcher, GiraphRunner, pass the path to the script
+as the Computation class argument. Additionally, you should set the -jythonClass
+option to let Giraph know the name of your Jython Computation class. Lastly, you
+will need to set -typesHolder to a class that extends Giraph's TypesHolder so
+that Giraph can infer the types you use. Look at page-rank.py as an example.
+
+-------------------------------
 
 How to run the unittests on a local pseudo-distributed Hadoop instance:
 
@@ -113,12 +164,12 @@ Download Apache Hadoop 0.20.203 (hadoop-0.20.203.0/hadoop-0.20.203.0rc1.tar.gz)
 from a mirror picked at http://www.apache.org/dyn/closer.cgi/hadoop/common/
 and unpack it into a local directory
 
-Follow the guide at 
+Follow the guide at
 http://hadoop.apache.org/common/docs/r0.20.2/quickstart.html#PseudoDistributed
 to setup a pseudo-distributed single node Hadoop cluster.
 
-Giraph’s code assumes that you can run at least 4 mappers at once, 
-unfortunately the default configuration allows only 2. Therefore you need 
+Giraph’s code assumes that you can run at least 4 mappers at once,
+unfortunately the default configuration allows only 2. Therefore you need
 to update conf/mapred-site.xml:
 
 <property>
@@ -148,7 +199,7 @@ Now you can open a browser, point it to http://localhost:50030 and watch the
 Giraph jobs from the unittests running on your local Hadoop instance!
 
 
-Notes: 
+Notes:
 Counter limit: In Hadoop 0.20.203.0 onwards, there is a limit on the number of
 counters one can use, which is set to 120 by default. This limit restricts the
 number of iterations/supersteps possible in Giraph. This limit can be increased
